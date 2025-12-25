@@ -1,0 +1,5 @@
+{
+  "name": "Elf Invaders",
+  "description": "A festive Christmas-themed Space Invaders clone where you defend the North Pole from rogue elves using Santa's sleigh. Features AI-generated Naughty or Nice feedback.",
+  "requestFramePermissions": []
+}
