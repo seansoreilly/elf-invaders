@@ -3,6 +3,7 @@ import GameCanvas from './components/GameCanvas';
 import GameOverlay from './components/GameOverlay';
 import Controls from './components/Controls';
 import { GameState } from './constants';
+import { initAudio } from './services/soundService';
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
@@ -14,6 +15,7 @@ const App: React.FC = () => {
   const livesRef = useRef<number>(3);
 
   const startGame = () => {
+    initAudio(); // Enable audio on user interaction
     setScore(0);
     setLives(3);
     scoreRef.current = 0;

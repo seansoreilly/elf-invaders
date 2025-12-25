@@ -9,6 +9,7 @@ import {
   GameState,
 } from '../constants';
 import { Player, Invader, Bullet, Particle, Star } from '../types';
+import { playShoot, playExplosion, playPlayerHit, playGameOver, playVictory, playMarch } from '../services/soundService';
 
 interface GameCanvasProps {
   gameState: GameState;
@@ -167,6 +168,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         markedForDeletion: false
       });
       playerRef.current.cooldown = PLAYER_COOLDOWN;
+      playShoot();
     }
 
     // --- Invader Logic ---
@@ -186,15 +188,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       invadersRef.current.forEach(inv => {
         inv.y += INVADER_DROP_DISTANCE;
       });
+      playMarch();
     }
 
     if (lowestInvaderY >= playerRef.current.y) {
       setGameState(GameState.GAME_OVER);
+      playGameOver();
       return;
     }
 
     if (invadersRef.current.length === 0) {
       setGameState(GameState.VICTORY);
+      playVictory();
       return;
     }
 
@@ -237,12 +242,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             scoreRef.current += 100;
             setScore(scoreRef.current);
             invaderSpeedRef.current += 0.05;
+            playExplosion();
           }
         });
       } else {
         const p = playerRef.current;
         if (
-          bullet.x < p.x + p.width - 10 && 
+          bullet.x < p.x + p.width - 10 &&
           bullet.x + bullet.width > p.x + 10 &&
           bullet.y < p.y + p.height &&
           bullet.y + bullet.height > p.y
@@ -251,8 +257,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           createExplosion(p.x + p.width/2, p.y + p.height/2, '#f87171'); // Bright Red
           livesRef.current -= 1;
           setLives(livesRef.current);
+          playPlayerHit();
           if (livesRef.current <= 0) {
             setGameState(GameState.GAME_OVER);
+            playGameOver();
           }
         }
       }
