@@ -13,6 +13,16 @@ interface GameOverlayProps {
 const GameOverlay: React.FC<GameOverlayProps> = ({ gameState, score, lives, onStart, onRestart }) => {
   const [santaMessage, setSantaMessage] = useState<string>('');
   const [loadingMessage, setLoadingMessage] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || 'ontouchstart' in window);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const fetchMessage = async () => {
@@ -69,7 +79,11 @@ const GameOverlay: React.FC<GameOverlayProps> = ({ gameState, score, lives, onSt
               START GAME
             </button>
             <p className="mt-6 sm:mt-8 text-xs sm:text-sm text-slate-400 font-sans tracking-wide">
-              Use <span className="text-white bg-slate-800 px-2 py-1 rounded">Arrow Keys</span> to Move & <span className="text-white bg-slate-800 px-2 py-1 rounded">Space</span> to Shoot
+              {isMobile ? (
+                <>Tap <span className="text-white bg-slate-800 px-2 py-1 rounded">◀ ▶</span> to Move & <span className="text-white bg-slate-800 px-2 py-1 rounded">🎁</span> to Shoot</>
+              ) : (
+                <>Use <span className="text-white bg-slate-800 px-2 py-1 rounded">Arrow Keys</span> to Move & <span className="text-white bg-slate-800 px-2 py-1 rounded">Space</span> to Shoot</>
+              )}
             </p>
           </div>
         )}
