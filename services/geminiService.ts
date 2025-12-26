@@ -9,8 +9,8 @@ const getSantaFeedback = async (score: number, win: boolean): Promise<string> =>
 
     const ai = new GoogleGenAI({ apiKey });
     
-    // Choose model based on guidelines
-    const model = 'gemini-3-flash-preview'; 
+    // Use cheapest model for cost efficiency
+    const model = 'gemini-2.0-flash-lite'; 
 
     const prompt = `
       You are Santa Claus. 
