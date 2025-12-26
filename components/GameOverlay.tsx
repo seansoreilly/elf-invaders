@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GameState } from '../constants';
-import { getSantaFeedback } from '../services/geminiService';
+import { getSantaFeedback } from '../services/llmService';
 
 interface GameOverlayProps {
   gameState: GameState;
