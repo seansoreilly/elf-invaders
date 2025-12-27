@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GameState } from '../constants';
-import { getSantaFeedback } from '../services/llmService';
+import { getSantaFeedback } from '../services/santaService';
 
 interface GameOverlayProps {
   gameState: GameState;
@@ -12,7 +12,6 @@ interface GameOverlayProps {
 
 const GameOverlay: React.FC<GameOverlayProps> = ({ gameState, score, lives, onStart, onRestart }) => {
   const [santaMessage, setSantaMessage] = useState<string>('');
-  const [loadingMessage, setLoadingMessage] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
   useEffect(() => {
@@ -25,16 +24,10 @@ const GameOverlay: React.FC<GameOverlayProps> = ({ gameState, score, lives, onSt
   }, []);
 
   useEffect(() => {
-    const fetchMessage = async () => {
-      if (gameState === GameState.GAME_OVER || gameState === GameState.VICTORY) {
-        setLoadingMessage(true);
-        const msg = await getSantaFeedback(score, gameState === GameState.VICTORY);
-        setSantaMessage(msg);
-        setLoadingMessage(false);
-      }
-    };
-    fetchMessage();
-  }, [gameState, score]);
+    if (gameState === GameState.GAME_OVER || gameState === GameState.VICTORY) {
+      setSantaMessage(getSantaFeedback(gameState === GameState.VICTORY));
+    }
+  }, [gameState]);
 
   if (gameState === GameState.PLAYING) {
     return (
@@ -101,14 +94,7 @@ const GameOverlay: React.FC<GameOverlayProps> = ({ gameState, score, lives, onSt
 
             <div className="mb-6 sm:mb-8 min-h-[80px] sm:min-h-[100px] bg-indigo-950/30 p-3 sm:p-4 rounded-lg border border-indigo-500/20">
                <p className="text-indigo-300 text-xs uppercase mb-2 tracking-widest font-bold">From the desk of Santa</p>
-               {loadingMessage ? (
-                 <div className="flex justify-center items-center gap-2 text-yellow-200">
-                    <span className="animate-spin">❄️</span>
-                    <span className="italic text-sm sm:text-base">Checking the Naughty List...</span>
-                 </div>
-               ) : (
-                 <p className="text-yellow-100 italic text-base sm:text-xl font-serif leading-relaxed drop-shadow-sm">"{santaMessage}"</p>
-               )}
+               <p className="text-yellow-100 italic text-base sm:text-xl font-serif leading-relaxed drop-shadow-sm">"{santaMessage}"</p>
             </div>
 
             <button
