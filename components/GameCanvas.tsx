@@ -69,6 +69,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   // Input State
   const keysPressed = useRef<{ [key: string]: boolean }>({});
 
+  // Touch state for mobile controls
+  const touchTargetRef = useRef<number | null>(null);
+  const touchActiveRef = useRef<boolean>(false);
+
   // Initialize Game
   const initGame = useCallback(() => {
     const { width, height, isMobile: mobile } = dimensionsRef.current;
@@ -147,12 +151,29 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const { width, height } = dimensionsRef.current;
 
     // --- Player Movement ---
+    // Keyboard movement
     if (keysPressed.current['ArrowLeft'] || keysPressed.current['a']) {
       playerRef.current.x -= PLAYER_SPEED;
     }
     if (keysPressed.current['ArrowRight'] || keysPressed.current['d']) {
       playerRef.current.x += PLAYER_SPEED;
     }
+
+    // Touch movement - smooth interpolation toward touch position
+    if (touchTargetRef.current !== null) {
+      const target = touchTargetRef.current;
+      const current = playerRef.current.x;
+      const diff = target - current;
+
+      // Move toward target with speed cap (faster than keyboard for responsiveness)
+      if (Math.abs(diff) > 2) {
+        const moveAmount = Math.min(Math.abs(diff), PLAYER_SPEED * 1.5);
+        playerRef.current.x += Math.sign(diff) * moveAmount;
+      } else {
+        playerRef.current.x = target;
+      }
+    }
+
     playerRef.current.x = Math.max(0, Math.min(width - PLAYER_WIDTH, playerRef.current.x));
 
     // --- Player Shooting ---
@@ -578,6 +599,44 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, [gameState]);
 
+  // Touch handlers for mobile - touch to move Santa, auto-fire while touching
+  const getScaledTouchX = useCallback((clientX: number): number | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    // Account for CSS scaling
+    const scaleX = dimensionsRef.current.width / rect.width;
+    return (clientX - rect.left) * scaleX;
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (gameState !== GameState.PLAYING) return;
+    e.preventDefault();
+
+    const x = getScaledTouchX(e.touches[0].clientX);
+    if (x === null) return;
+
+    touchActiveRef.current = true;
+    touchTargetRef.current = x - PLAYER_WIDTH / 2;
+    keysPressed.current[' '] = true; // Start firing
+  }, [gameState, getScaledTouchX]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!touchActiveRef.current) return;
+    e.preventDefault();
+
+    const x = getScaledTouchX(e.touches[0].clientX);
+    if (x === null) return;
+
+    touchTargetRef.current = x - PLAYER_WIDTH / 2;
+  }, [getScaledTouchX]);
+
+  const handleTouchEnd = useCallback(() => {
+    touchActiveRef.current = false;
+    touchTargetRef.current = null;
+    keysPressed.current[' '] = false; // Stop firing
+  }, []);
+
   // Main Loop Trigger
   useEffect(() => {
     if (gameState === GameState.PLAYING && invadersRef.current.length === 0 && livesRef.current > 0) {
@@ -604,6 +663,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       height={canvasHeight}
       className="max-w-full h-auto border-4 border-slate-700 rounded-xl shadow-2xl shadow-indigo-500/20 cursor-none"
       style={{ touchAction: 'none' }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     />
   );
 };

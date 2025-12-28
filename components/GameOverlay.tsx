@@ -73,7 +73,7 @@ const GameOverlay: React.FC<GameOverlayProps> = ({ gameState, score, lives, onSt
             </button>
             <p className="mt-6 sm:mt-8 text-xs sm:text-sm text-slate-400 font-sans tracking-wide">
               {isMobile ? (
-                <>Tap <span className="text-white bg-slate-800 px-2 py-1 rounded">◀ ▶</span> to Move & <span className="text-white bg-slate-800 px-2 py-1 rounded">🎁</span> to Shoot</>
+                <>Touch screen to <span className="text-white bg-slate-800 px-2 py-1 rounded">Move</span> & <span className="text-white bg-slate-800 px-2 py-1 rounded">Fire</span></>
               ) : (
                 <>Use <span className="text-white bg-slate-800 px-2 py-1 rounded">Arrow Keys</span> to Move & <span className="text-white bg-slate-800 px-2 py-1 rounded">Space</span> to Shoot</>
               )}

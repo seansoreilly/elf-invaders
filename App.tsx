@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import GameCanvas from './components/GameCanvas';
 import GameOverlay from './components/GameOverlay';
-import Controls from './components/Controls';
 import { GameState } from './constants';
 import { initAudio } from './services/soundService';
 
@@ -54,8 +53,6 @@ const App: React.FC = () => {
             />
         </div>
       </div>
-
-      <Controls />
 
       <footer className="mt-8 text-slate-500 text-sm relative z-10 font-mono opacity-60 hover:opacity-100 transition-opacity">
         Elf Invaders • <span className="text-red-500">♥</span> React & Tailwind
