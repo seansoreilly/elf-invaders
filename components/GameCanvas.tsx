@@ -1,14 +1,15 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { 
-  CANVAS_WIDTH, CANVAS_HEIGHT, 
+import React, { useEffect, useRef, useCallback, useState } from 'react';
+import {
+  getCanvasDimensions,
   PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED, PLAYER_COOLDOWN,
-  INVADER_WIDTH, INVADER_HEIGHT, INVADER_PADDING, INVADER_ROWS, INVADER_COLS, INVADER_DROP_DISTANCE,
+  INVADER_WIDTH, INVADER_HEIGHT, INVADER_PADDING, INVADER_ROWS, INVADER_COLS, MOBILE_INVADER_COLS, INVADER_DROP_DISTANCE,
   BULLET_WIDTH, BULLET_HEIGHT, BULLET_SPEED,
   INVADER_BULLET_WIDTH, INVADER_BULLET_HEIGHT,
-  SPRITE_PLAYER, SPRITE_BULLET_PLAYER, SPRITE_BULLET_INVADER,
+  SPRITE_BULLET_PLAYER,
   GameState,
 } from '../constants';
 import { Player, Invader, Bullet, Particle, Star } from '../types';
+import { playShoot, playExplosion, playPlayerHit, playGameOver, playVictory, playMarch } from '../services/soundService';
 
 interface GameCanvasProps {
   gameState: GameState;
@@ -19,23 +20,40 @@ interface GameCanvasProps {
   livesRef: React.MutableRefObject<number>;
 }
 
-const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, 
-  setGameState, 
-  setScore, 
+const GameCanvas: React.FC<GameCanvasProps> = ({
+  gameState,
+  setGameState,
+  setScore,
   setLives,
   scoreRef,
   livesRef
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
-  
+
+  // Responsive dimensions
+  const [dimensions, setDimensions] = useState(getCanvasDimensions);
+  const dimensionsRef = useRef(dimensions);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const newDims = getCanvasDimensions();
+      setDimensions(newDims);
+      dimensionsRef.current = newDims;
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const { width: canvasWidth, height: canvasHeight, isMobile } = dimensions;
+  const invaderCols = isMobile ? MOBILE_INVADER_COLS : INVADER_COLS;
+
   // Game State Refs
-  const playerRef = useRef<Player>({ 
-    x: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2, 
-    y: CANVAS_HEIGHT - PLAYER_HEIGHT - 10, 
-    width: PLAYER_WIDTH, 
-    height: PLAYER_HEIGHT, 
+  const playerRef = useRef<Player>({
+    x: canvasWidth / 2 - PLAYER_WIDTH / 2,
+    y: canvasHeight - PLAYER_HEIGHT - 10,
+    width: PLAYER_WIDTH,
+    height: PLAYER_HEIGHT,
     markedForDeletion: false,
     cooldown: 0
   });
@@ -51,23 +69,32 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   // Input State
   const keysPressed = useRef<{ [key: string]: boolean }>({});
 
+  // Touch state for mobile controls
+  const touchTargetRef = useRef<number | null>(null);
+  const touchActiveRef = useRef<boolean>(false);
+
   // Initialize Game
   const initGame = useCallback(() => {
-    playerRef.current = { 
-      x: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2, 
-      y: CANVAS_HEIGHT - PLAYER_HEIGHT - 10, 
-      width: PLAYER_WIDTH, 
-      height: PLAYER_HEIGHT, 
+    const { width, height, isMobile: mobile } = dimensionsRef.current;
+    const cols = mobile ? MOBILE_INVADER_COLS : INVADER_COLS;
+
+    playerRef.current = {
+      x: width / 2 - PLAYER_WIDTH / 2,
+      y: height - PLAYER_HEIGHT - 10,
+      width: PLAYER_WIDTH,
+      height: PLAYER_HEIGHT,
       markedForDeletion: false,
       cooldown: 0
     };
-    
+
     const newInvaders: Invader[] = [];
+    const startX = mobile ? 20 : 50;
+    const padding = mobile ? 12 : INVADER_PADDING;
     for (let r = 0; r < INVADER_ROWS; r++) {
-      for (let c = 0; c < INVADER_COLS; c++) {
+      for (let c = 0; c < cols; c++) {
         newInvaders.push({
-          x: 50 + c * (INVADER_WIDTH + INVADER_PADDING),
-          y: 50 + r * (INVADER_HEIGHT + INVADER_PADDING),
+          x: startX + c * (INVADER_WIDTH + padding),
+          y: 50 + r * (INVADER_HEIGHT + padding),
           width: INVADER_WIDTH,
           height: INVADER_HEIGHT,
           markedForDeletion: false,
@@ -82,18 +109,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     invaderDirRef.current = 1;
     invaderSpeedRef.current = 1;
     frameCountRef.current = 0;
-    
+
     // Init Snow (Stars)
-    if (starsRef.current.length === 0) {
-      for (let i = 0; i < 150; i++) {
-        starsRef.current.push({
-          x: Math.random() * CANVAS_WIDTH,
-          y: Math.random() * CANVAS_HEIGHT,
-          size: Math.random() * 2 + 1,
-          speed: Math.random() * 1.5 + 0.5,
-          opacity: Math.random() * 0.5 + 0.3
-        });
-      }
+    starsRef.current = [];
+    for (let i = 0; i < 150; i++) {
+      starsRef.current.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        size: Math.random() * 2 + 1,
+        speed: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.5 + 0.3
+      });
     }
   }, []);
 
@@ -122,14 +148,33 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const { width, height } = dimensionsRef.current;
+
     // --- Player Movement ---
+    // Keyboard movement
     if (keysPressed.current['ArrowLeft'] || keysPressed.current['a']) {
       playerRef.current.x -= PLAYER_SPEED;
     }
     if (keysPressed.current['ArrowRight'] || keysPressed.current['d']) {
       playerRef.current.x += PLAYER_SPEED;
     }
-    playerRef.current.x = Math.max(0, Math.min(CANVAS_WIDTH - PLAYER_WIDTH, playerRef.current.x));
+
+    // Touch movement - smooth interpolation toward touch position
+    if (touchTargetRef.current !== null) {
+      const target = touchTargetRef.current;
+      const current = playerRef.current.x;
+      const diff = target - current;
+
+      // Move toward target with speed cap (faster than keyboard for responsiveness)
+      if (Math.abs(diff) > 2) {
+        const moveAmount = Math.min(Math.abs(diff), PLAYER_SPEED * 1.5);
+        playerRef.current.x += Math.sign(diff) * moveAmount;
+      } else {
+        playerRef.current.x = target;
+      }
+    }
+
+    playerRef.current.x = Math.max(0, Math.min(width - PLAYER_WIDTH, playerRef.current.x));
 
     // --- Player Shooting ---
     if (playerRef.current.cooldown > 0) playerRef.current.cooldown--;
@@ -144,6 +189,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         markedForDeletion: false
       });
       playerRef.current.cooldown = PLAYER_COOLDOWN;
+      playShoot();
     }
 
     // --- Invader Logic ---
@@ -152,7 +198,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     invadersRef.current.forEach(inv => {
       inv.x += invaderSpeedRef.current * invaderDirRef.current;
-      if (inv.x <= 0 || inv.x + INVADER_WIDTH >= CANVAS_WIDTH) {
+      if (inv.x <= 0 || inv.x + INVADER_WIDTH >= width) {
         hitEdge = true;
       }
       lowestInvaderY = Math.max(lowestInvaderY, inv.y + INVADER_HEIGHT);
@@ -163,15 +209,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       invadersRef.current.forEach(inv => {
         inv.y += INVADER_DROP_DISTANCE;
       });
+      playMarch();
     }
 
     if (lowestInvaderY >= playerRef.current.y) {
       setGameState(GameState.GAME_OVER);
+      playGameOver();
       return;
     }
 
     if (invadersRef.current.length === 0) {
       setGameState(GameState.VICTORY);
+      playVictory();
       return;
     }
 
@@ -192,7 +241,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     // --- Bullet Updates ---
     bulletsRef.current.forEach(b => {
       b.y += b.dy;
-      if (b.y < 0 || b.y > CANVAS_HEIGHT) b.markedForDeletion = true;
+      if (b.y < 0 || b.y > height) b.markedForDeletion = true;
     });
 
     // --- Collisions ---
@@ -214,12 +263,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             scoreRef.current += 100;
             setScore(scoreRef.current);
             invaderSpeedRef.current += 0.05;
+            playExplosion();
           }
         });
       } else {
         const p = playerRef.current;
         if (
-          bullet.x < p.x + p.width - 10 && 
+          bullet.x < p.x + p.width - 10 &&
           bullet.x + bullet.width > p.x + 10 &&
           bullet.y < p.y + p.height &&
           bullet.y + bullet.height > p.y
@@ -228,8 +278,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           createExplosion(p.x + p.width/2, p.y + p.height/2, '#f87171'); // Bright Red
           livesRef.current -= 1;
           setLives(livesRef.current);
+          playPlayerHit();
           if (livesRef.current <= 0) {
             setGameState(GameState.GAME_OVER);
+            playGameOver();
           }
         }
       }
@@ -252,9 +304,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     // --- Snow ---
     starsRef.current.forEach(s => {
       s.y += s.speed;
-      if (s.y > CANVAS_HEIGHT) {
+      if (s.y > height) {
         s.y = 0;
-        s.x = Math.random() * CANVAS_WIDTH;
+        s.x = Math.random() * width;
       }
     });
 
@@ -267,13 +319,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const { width, height } = dimensionsRef.current;
+
     // Clear with Gradient Background (Midnight Blue to Dark Purple/Indigo)
-    const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
     gradient.addColorStop(0, '#020617'); // Very dark slate
     gradient.addColorStop(0.5, '#1e1b4b'); // Indigo 950
     gradient.addColorStop(1, '#312e81'); // Indigo 900
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.fillRect(0, 0, width, height);
 
     // Draw Snow
     ctx.fillStyle = '#e2e8f0';
@@ -545,6 +599,44 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, [gameState]);
 
+  // Touch handlers for mobile - touch to move Santa, auto-fire while touching
+  const getScaledTouchX = useCallback((clientX: number): number | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    // Account for CSS scaling
+    const scaleX = dimensionsRef.current.width / rect.width;
+    return (clientX - rect.left) * scaleX;
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (gameState !== GameState.PLAYING) return;
+    e.preventDefault();
+
+    const x = getScaledTouchX(e.touches[0].clientX);
+    if (x === null) return;
+
+    touchActiveRef.current = true;
+    touchTargetRef.current = x - PLAYER_WIDTH / 2;
+    keysPressed.current[' '] = true; // Start firing
+  }, [gameState, getScaledTouchX]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!touchActiveRef.current) return;
+    e.preventDefault();
+
+    const x = getScaledTouchX(e.touches[0].clientX);
+    if (x === null) return;
+
+    touchTargetRef.current = x - PLAYER_WIDTH / 2;
+  }, [getScaledTouchX]);
+
+  const handleTouchEnd = useCallback(() => {
+    touchActiveRef.current = false;
+    touchTargetRef.current = null;
+    keysPressed.current[' '] = false; // Stop firing
+  }, []);
+
   // Main Loop Trigger
   useEffect(() => {
     if (gameState === GameState.PLAYING && invadersRef.current.length === 0 && livesRef.current > 0) {
@@ -565,12 +657,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [gameState, initGame]);
 
   return (
-    <canvas 
-      ref={canvasRef} 
-      width={CANVAS_WIDTH} 
-      height={CANVAS_HEIGHT}
+    <canvas
+      ref={canvasRef}
+      width={canvasWidth}
+      height={canvasHeight}
       className="max-w-full h-auto border-4 border-slate-700 rounded-xl shadow-2xl shadow-indigo-500/20 cursor-none"
       style={{ touchAction: 'none' }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     />
   );
 };

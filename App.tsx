@@ -1,8 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import GameCanvas from './components/GameCanvas';
 import GameOverlay from './components/GameOverlay';
-import Controls from './components/Controls';
 import { GameState } from './constants';
+import { track } from './services/analytics';
+
+// The game has a single round, so every event reports level 1.
+const LEVEL = 1;
+import { initAudio } from './services/soundService';
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
@@ -13,7 +17,24 @@ const App: React.FC = () => {
   const scoreRef = useRef<number>(0);
   const livesRef = useRef<number>(3);
 
+  // Report round start/end from state transitions so every path that ends a
+  // round (lives lost, invaders reached the player, all invaders cleared) is covered.
+  const prevStateRef = useRef<GameState>(GameState.MENU);
+  useEffect(() => {
+    const prev = prevStateRef.current;
+    prevStateRef.current = gameState;
+    if (gameState === prev) return;
+    if (gameState === GameState.PLAYING) {
+      track('level_start', { level: LEVEL });
+    } else if (prev === GameState.PLAYING && (gameState === GameState.GAME_OVER || gameState === GameState.VICTORY)) {
+      const finalScore = scoreRef.current;
+      track('level_end', { level: LEVEL, score: finalScore, success: gameState === GameState.VICTORY });
+      track('post_score', { level: LEVEL, score: finalScore });
+    }
+  }, [gameState]);
+
   const startGame = () => {
+    initAudio(); // Enable audio on user interaction
     setScore(0);
     setLives(3);
     scoreRef.current = 0;
@@ -52,8 +73,6 @@ const App: React.FC = () => {
             />
         </div>
       </div>
-
-      <Controls />
 
       <footer className="mt-8 text-slate-500 text-sm relative z-10 font-mono opacity-60 hover:opacity-100 transition-opacity">
         Elf Invaders • <span className="text-red-500">♥</span> React & Tailwind
