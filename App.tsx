@@ -75,7 +75,13 @@ const App: React.FC = () => {
       </div>
 
       <footer className="mt-8 text-slate-500 text-sm relative z-10 font-mono opacity-60 hover:opacity-100 transition-opacity">
-        Elf Invaders • <span className="text-red-500">♥</span> React & Tailwind
+        <div>Elf Invaders • <span className="text-red-500">♥</span> React & Tailwind</div>
+        <div className="mt-1 text-xs text-center">
+          Built by{' '}
+          <a href="https://stepthrough.au/" target="_blank" rel="noopener" className="underline">Stepthrough</a>
+          {' · '}
+          <a href="mailto:contact@stepthrough.au" className="underline">contact@stepthrough.au</a>
+        </div>
       </footer>
     </div>
   );
